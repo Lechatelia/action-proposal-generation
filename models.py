@@ -34,9 +34,9 @@ class TEM(torch.nn.Module):
             self.weight_init(m)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = torch.sigmoid(0.01*self.conv3(x))
+        x = F.relu(self.conv1(x)) # [bs, 400, 100]
+        x = F.relu(self.conv2(x)) # [bs, 512, 100]
+        x = torch.sigmoid(0.01*self.conv3(x)) #这个0.01的作用很大吗？？？
         return x
 
 class PEM(torch.nn.Module):

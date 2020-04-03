@@ -1,14 +1,24 @@
 # BSN-boundary-sensitive-network.pytorch
 
-This repo holds the pytorch-version codes of paper: "BSN: Boundary Sensitive Network for Temporal Action Proposal Generation", which is accepted in ECCV 2018. You can also find tensorflow-version implementation in [[BSN.tensorflow]](https://github.com/wzmsltw/BSN-boundary-sensitive-network).
+This repo holds the pytorch-version codes of paper: "BSN: Boundary Sensitive Network for Temporal Action Proposal Generation", which is accepted in ECCV 2018.
+[[Arxiv Preprint]](http://arxiv.org/abs/1806.02964) 
 
-[[Arxiv Preprint]](http://arxiv.org/abs/1806.02964)
+and is forked from [the awesome work](https://github.com/wzmsltw/BSN-boundary-sensitive-network.pytorch) by Tianwei Lin
+I want to implement some of my own ideas based on this code.
+
 
 # Update
 support python3
 
+# Todo
+1，TEM产生gt的部分不够高效，换成矩阵方式
 
-# old comit 
+2，损失函数 logistic loss 其他损失函数 l2 loss or focal loss
+
+3，add BMN Network
+
+
+# old commit 
 * 2018.12.12: Release Pytorch-version BSN
 * 2018.09.26: Previously, we adopted classification results from result files of "Uts at activitynet 2016" for action detection experiments. Recently we found that the classification accuracy of these results are unexpected high. Thus we replace it with classification results of "cuhk & ethz & siat submission to activitynet challenge 2017" and updated all related experiments accordingly. You can find updated papers in my [homepage](wzmsltw.github.io) and in arXiv.
 * 2018.07.09: Codes and feature of BSN

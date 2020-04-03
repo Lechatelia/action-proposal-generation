@@ -25,19 +25,23 @@ def train_TEM(data_loader,model,optimizer,epoch,writer,opt):
     epoch_end_loss = 0
     epoch_cost = 0
     for n_iter,(input_data,label_action,label_start,label_end) in enumerate(data_loader):
-        TEM_output = model(input_data)
+        TEM_output = model(input_data) # [bs, 3, 100]
         loss = TEM_loss_function(label_action,label_start,label_end,TEM_output,opt)
-        cost = loss["cost"] 
+        cost = loss["cost"] # 得到损失函数
         
         optimizer.zero_grad()
         cost.backward()
         optimizer.step()
-        
+
+        # 这里可以进行优化一下，每一个iter都进行输出
         epoch_action_loss += loss["loss_action"].cpu().detach().numpy()
         epoch_start_loss += loss["loss_start"].cpu().detach().numpy()
         epoch_end_loss += loss["loss_end"].cpu().detach().numpy()
         epoch_cost += loss["cost"].cpu().detach().numpy()
-    
+
+
+
+    # 每一个epoch 显示一下损失函数的值
     writer.add_scalars('data/action', {'train': epoch_action_loss/(n_iter+1)}, epoch)
     writer.add_scalars('data/start', {'train': epoch_start_loss/(n_iter+1)}, epoch)
     writer.add_scalars('data/end', {'train': epoch_end_loss/(n_iter+1)}, epoch)
@@ -103,7 +107,7 @@ def test_PEM(data_loader,model,epoch,writer,opt):
         epoch_iou_loss += iou_loss.cpu().detach().numpy()
 
     writer.add_scalars('data/iou_loss', {'validation': epoch_iou_loss/(n_iter+1)}, epoch)
-    
+
     print ("PEM testing  loss(epoch %d): iou - %.04f" %(epoch,epoch_iou_loss/(n_iter+1)))
     
     state = {'epoch': epoch + 1,
@@ -112,7 +116,6 @@ def test_PEM(data_loader,model,epoch,writer,opt):
     if epoch_iou_loss<model.module.pem_best_loss :
         model.module.pem_best_loss = np.mean(epoch_iou_loss)
         torch.save(state, opt["checkpoint_path"]+"/pem_best.pth.tar" )
-
 
 def BSN_Train_TEM(opt):
     writer = SummaryWriter()
@@ -133,8 +136,8 @@ def BSN_Train_TEM(opt):
         
     for epoch in range(opt["tem_epoch"]):
         scheduler.step()
-        train_TEM(train_loader,model,optimizer,epoch,writer,opt)
-        test_TEM(test_loader,model,epoch,writer,opt)
+        train_TEM(train_loader,model,optimizer,epoch,writer,opt) # 网络训练
+        test_TEM(test_loader,model,epoch,writer,opt) # 网络测试
     writer.close()
 
 def BSN_Train_PEM(opt):
@@ -162,8 +165,8 @@ def BSN_Train_PEM(opt):
         
     for epoch in range(opt["pem_epoch"]):
         scheduler.step()
-        train_PEM(train_loader,model,optimizer,epoch,writer,opt)
-        test_PEM(test_loader,model,epoch,writer,opt)
+        train_PEM(train_loader,model,optimizer,epoch,writer,opt) # 训练
+        test_PEM(test_loader,model,epoch,writer,opt) # 测试
         
     writer.close()
 

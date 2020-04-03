@@ -4,16 +4,16 @@ import numpy as np
 import torch.nn.functional as F
     
 def bi_loss(scores,anchors,opt):
-    scores = scores.view(-1).cuda()
-    anchors = anchors.contiguous().view(-1)
+    scores = scores.view(-1).cuda() # gt [bs*100]
+    anchors = anchors.contiguous().view(-1) #prediction [bs*100]
     
-    pmask = (scores>opt["tem_match_thres"]).float().cuda()
-    num_positive = torch.sum(pmask)
-    num_entries = len(scores)
-    ratio=num_entries/num_positive
+    pmask = (scores>opt["tem_match_thres"]).float().cuda() #对分数进行二值化，但是这样就相当于硬的gt，换成原来的会不会也行
+    num_positive = torch.sum(pmask) # 预测的分数超过阈值的时间点
+    num_entries = len(scores) #总的时间点
+    ratio=num_entries/num_positive # 概率值
 
-    coef_0=0.5*(ratio)/(ratio-1)
-    coef_1=coef_0*(ratio-1)
+    coef_0=0.5*(ratio)/(ratio-1) #0.5*(num_entries/num_negative
+    coef_1=coef_0*(ratio-1) # 0.5*num_entries/num_positive
     loss = coef_1*pmask*torch.log(anchors+0.00001) + coef_0*(1.0-pmask)*torch.log(1.0-anchors+0.00001)
     loss=-torch.mean(loss)
     num_sample=[torch.sum(pmask),ratio] 
@@ -21,7 +21,7 @@ def bi_loss(scores,anchors,opt):
 
 def TEM_loss_calc(anchors_action,anchors_start,anchors_end,
              match_scores_action,match_scores_start,match_scores_end,opt):
-    
+    # 计算三个概率序列的损失
     loss_action,num_sample_action=bi_loss(match_scores_action,anchors_action,opt)
     loss_start_small,num_sample_start_small=bi_loss(match_scores_start,anchors_start,opt)
     loss_end_small,num_sample_end_small=bi_loss(match_scores_end,anchors_end,opt)
@@ -34,13 +34,13 @@ def TEM_loss_calc(anchors_action,anchors_start,anchors_end,
 
 
 def TEM_loss_function(y_action,y_start,y_end,TEM_output,opt):
-    anchors_action = TEM_output[:,0,:]
+    anchors_action = TEM_output[:,0,:] # [bs, 100] 概率序列 专业术语叫做 temporal activation map
     anchors_start = TEM_output[:,1,:]
     anchors_end = TEM_output[:,2,:]
     loss_dict=TEM_loss_calc(anchors_action,anchors_start,anchors_end,
                      y_action,y_start,y_end,opt)
     
-    cost=2*loss_dict["loss_action"]+loss_dict["loss_start"]+loss_dict["loss_end"]
+    cost=2*loss_dict["loss_action"]+loss_dict["loss_start"]+loss_dict["loss_end"] # 总的损失函数
     loss_dict["cost"] = cost
     return loss_dict
 
