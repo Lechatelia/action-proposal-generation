@@ -152,8 +152,27 @@ class ProposalDataSet(data.Dataset):
             self.top_K = opt["pem_top_K_inference"]
         self.video_info_path = opt["video_info"]
         self.video_anno_path = opt["video_anno"]
-
+        self.feature_path = opt["feature_path"]  # '特征存放位置'
+        self.temporal_scale = opt["temporal_scale"]  # 时域长度 归一化到100
         self._getDatasetDict()
+        self.check_csv()
+
+    def check_csv(self):
+        # 因为某些视频的特征可能不存在，或者遭到了损坏
+        for video in self.video_list:
+            if not os.path.exists(self.feature_path + "csv_mean_" + str(self.temporal_scale) + "/" + video + ".csv"):
+                print("video :{} feature csv is not existed".format(video))
+                self.video_list.remove(video)
+                del self.video_dict[video]
+        # 删除已知的错误样本
+        del_videl_list = ['v_5HW6mjZZvtY']
+        for v in del_videl_list:
+            if v in self.video_dict:
+                print("del " + v +' video')
+                self.video_list.remove(v)
+                del  self.video_dict[v]
+
+        print ("After check: csv \n %s subset video numbers: %d" %(self.subset,len(self.video_list)))
         
     def _getDatasetDict(self):
         anno_df = pd.read_csv(self.video_info_path)
@@ -167,7 +186,7 @@ class ProposalDataSet(data.Dataset):
                 self.video_dict[video_name] = video_info
             if self.subset in video_subset:
                 self.video_dict[video_name] = video_info
-        self.video_list = self.video_dict.keys()
+        self.video_list = list(self.video_dict.keys())
         print ("%s subset video numbers: %d" %(self.subset,len(self.video_list)))
 
     def __len__(self):

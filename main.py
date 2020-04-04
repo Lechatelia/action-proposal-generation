@@ -173,7 +173,7 @@ def BSN_Train_PEM(opt):
 
 def BSN_inference_TEM(opt):
     model = TEM(opt)
-    checkpoint = torch.load(opt["checkpoint_path"]+"/tem_best.pth.tar")
+    checkpoint = torch.load(opt["checkpoint_path"]+"/tem_best.pth.tar") #装载模型
     base_dict = {'.'.join(k.split('.')[1:]): v for k,v in list(checkpoint['state_dict'].items())}
     model.load_state_dict(base_dict)
     model = torch.nn.DataParallel(model, device_ids=[0]).cuda()
@@ -184,6 +184,7 @@ def BSN_inference_TEM(opt):
                                                 num_workers=8, pin_memory=True,drop_last=False)
     
     columns=["action","start","end","xmin","xmax"]
+    # 主要是将各个视频的三个概率序列给存储起来，便于后续模块生成proposal
     for index_list,input_data,anchor_xmin,anchor_xmax in test_loader:
         
         TEM_output = model(input_data).detach().cpu().numpy()
@@ -196,10 +197,11 @@ def BSN_inference_TEM(opt):
         anchor_xmax = np.array([x.numpy()[0] for x in anchor_xmax])
         
         for batch_idx,full_idx in enumerate(index_list):            
-            video = test_loader.dataset.video_list[full_idx]
+            video = test_loader.dataset.video_list[full_idx] # video name
             video_action = batch_action[batch_idx]
             video_start = batch_start[batch_idx]
-            video_end = batch_end[batch_idx]    
+            video_end = batch_end[batch_idx]     # 三个概率序列
+            # 拼接起来，最后两列是时间帧 比如0.00 到 0.01
             video_result = np.stack((video_action,video_start,video_end,anchor_xmin,anchor_xmax),axis=1)
             video_df = pd.DataFrame(video_result,columns=columns)  
             video_df.to_csv("./output/TEM_results/"+video+".csv",index=False)
@@ -207,7 +209,7 @@ def BSN_inference_TEM(opt):
             
 def BSN_inference_PEM(opt):
     model = PEM(opt)
-    checkpoint = torch.load(opt["checkpoint_path"]+"/pem_best.pth.tar")
+    checkpoint = torch.load(opt["checkpoint_path"]+"/pem_best.pth.tar") #装载模型
     base_dict = {'.'.join(k.split('.')[1:]): v for k,v in list(checkpoint['state_dict'].items())}
     model.load_state_dict(base_dict)
     model = torch.nn.DataParallel(model, device_ids=[0]).cuda()
@@ -245,7 +247,7 @@ def main(opt):
             print ("TEM inference start"   )
             if not os.path.exists("output/TEM_results"):
                 os.makedirs("output/TEM_results") 
-            BSN_inference_TEM(opt)
+            BSN_inference_TEM(opt) # 前推产生每一个video的三个概率序列 并存储到TEM-results
             print ("TEM inference finished" )
         else:
             print ("Wrong mode. TEM has two modes: train and inference" )
@@ -254,13 +256,13 @@ def main(opt):
         if not os.path.exists("output/PGM_proposals"):
             os.makedirs("output/PGM_proposals") 
         print ("PGM: start generate proposals" )
-        PGM_proposal_generation(opt)
+        PGM_proposal_generation(opt) # generate proposal
         print ("PGM: finish generate proposals" )
         
         if not os.path.exists("output/PGM_feature"):
-            os.makedirs("output/PGM_feature") 
+            os.makedirs("output/PGM_feature")  #
         print ("PGM: start generate BSP feature" )
-        PGM_feature_generation(opt)
+        PGM_feature_generation(opt) #generate bsp features and store them
         print ("PGM: finish generate BSP feature" )
     
     elif opt["module"] == "PEM":

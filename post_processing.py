@@ -96,12 +96,18 @@ def video_post_process(opt,video_list,video_dict):
 
 def BSN_post_processing(opt):
     video_dict=getDatasetDict(opt)
-    video_list=video_dict.keys()#[:100]
+    video_list=list(video_dict.keys())#[:100]
+    del_videl_list = ['v_5HW6mjZZvtY']
+    for v in del_videl_list:  # delete the video from video list, whose feature csv is broken
+        if v in video_dict:
+            print("del " + v + ' video')
+            video_list.remove(v)
+            del video_dict[v]
     global result_dict
     result_dict=mp.Manager().dict()
     
     num_videos = len(video_list)
-    num_videos_per_thread = num_videos/opt["post_process_thread"]
+    num_videos_per_thread = int(num_videos/opt["post_process_thread"])
     processes = []
     for tid in range(opt["post_process_thread"]-1):
         tmp_video_list = video_list[tid*num_videos_per_thread:(tid+1)*num_videos_per_thread]

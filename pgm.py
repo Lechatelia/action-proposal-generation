@@ -32,9 +32,9 @@ def ioa_with_anchors(anchors_min,anchors_max,box_min,box_max):
     return scores
 
 def generateProposals(opt,video_list,video_dict):
-    tscale = opt["temporal_scale"]    
+    tscale = opt["temporal_scale"]     # 100
     tgap = 1./tscale
-    peak_thres= opt["pgm_threshold"]
+    peak_thres= opt["pgm_threshold"] # 0.5
 
     for video_name in video_list:
         tdf=pandas.read_csv("./output/TEM_results/"+video_name+".csv")
@@ -113,7 +113,7 @@ def generateProposals(opt,video_list,video_dict):
                 tmp_new_ioa=max(ioa_with_anchors(new_df.xmin.values[j],new_df.xmax.values[j],gt_xmins,gt_xmaxs))
                 new_ioa_list.append(tmp_new_ioa)
             new_df["match_iou"]=new_iou_list
-            new_df["match_ioa"]=new_ioa_list
+            new_df["match_ioa"]=new_ioa_list # 因为要参与训练，所以要把这些真值加进去
         except:
             pass
         new_df.to_csv("./output/PGM_proposals/"+video_name+".csv",index=False)
@@ -138,10 +138,10 @@ def getDatasetDict(opt):
 
 def generateFeature(opt,video_list,video_dict):
 
-    num_sample_start=opt["num_sample_start"]
-    num_sample_end=opt["num_sample_end"]
-    num_sample_action=opt["num_sample_action"]
-    num_sample_interpld = opt["num_sample_interpld"]
+    num_sample_start=opt["num_sample_start"] # 8
+    num_sample_end=opt["num_sample_end"] # 8
+    num_sample_action=opt["num_sample_action"] # 16
+    num_sample_interpld = opt["num_sample_interpld"] #3
 
     for video_name in video_list:
         adf=pandas.read_csv("./output/TEM_results/"+video_name+".csv")
@@ -150,7 +150,7 @@ def generateFeature(opt,video_list,video_dict):
         seg_xmaxs = adf.xmax.values[:]
         video_scale = len(adf)
         video_gap = seg_xmaxs[0] - seg_xmins[0]
-        video_extend = video_scale / 4 + 10
+        video_extend = int( video_scale / 4 + 10)
         pdf=pandas.read_csv("./output/PGM_proposals/"+video_name+".csv")
         video_subset = video_dict[video_name]['subset']
         if video_subset == "training":
@@ -200,11 +200,18 @@ def generateFeature(opt,video_list,video_dict):
 
 def PGM_proposal_generation(opt):
     video_dict= load_json(opt["video_anno"])
-    video_list=video_dict.keys()#[:199]
+    video_list=list(video_dict.keys())#[:199]
+    del_videl_list = ['v_5HW6mjZZvtY']
+    for v in del_videl_list: # delete the video from video list, whose feature csv is broken
+        if v in video_dict:
+            print("del " + v + ' video')
+            video_list.remove(v)
+            del video_dict[v]
+    print ("After check: csv \n  video numbers: %d" %(len(video_list)))
     num_videos = len(video_list)
-    num_videos_per_thread = num_videos/opt["pgm_thread"]
+    num_videos_per_thread = int(num_videos/opt["pgm_thread"])
     processes = []
-    for tid in range(opt["pgm_thread"]-1):
+    for tid in range(opt["pgm_thread"]-1): # multi thread to process the proposal generation
         tmp_video_list = video_list[tid*num_videos_per_thread:(tid+1)*num_videos_per_thread]
         p = mp.Process(target = generateProposals,args =(opt,tmp_video_list,video_dict,))
         p.start()
@@ -220,9 +227,16 @@ def PGM_proposal_generation(opt):
 
 def PGM_feature_generation(opt):
     video_dict=getDatasetDict(opt)
-    video_list=video_dict.keys()
+    video_list=list(video_dict.keys())
+    del_videl_list = ['v_5HW6mjZZvtY']
+    for v in del_videl_list:
+        if v in video_dict:
+            print("del " + v + ' video')
+            video_list.remove(v)
+            del video_dict[v]
+    print ("After check: csv \n  video numbers: %d" %(len(video_list)))
     num_videos = len(video_list)
-    num_videos_per_thread = num_videos/opt["pgm_thread"]
+    num_videos_per_thread = int(num_videos/opt["pgm_thread"])
     processes = []
     for tid in range(opt["pgm_thread"]-1):
         tmp_video_list = video_list[tid*num_videos_per_thread:(tid+1)*num_videos_per_thread]

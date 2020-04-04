@@ -7,11 +7,14 @@ def parse_opt():
     parser.add_argument(
         '--module',
         type=str,
-        default='TEM')
+        default='Evaluation')
+        # default='Post_processing')
+        # default='PEM')
     parser.add_argument(
         '--mode',
         type=str,
-        default='train')
+        # default='train')
+        default='inference')
     parser.add_argument(
         '--checkpoint_path',
         type=str,
@@ -28,7 +31,7 @@ def parse_opt():
         default="./data/activitynet_annotations/anet_anno_action.json")
     
     # TEM Dataset settings
-    parser.add_argument( # 时间尺度大小，相当于做了归一化，有技巧性在李曼
+    parser.add_argument( # 时间尺度大小，相当于做了归一化，有技巧性在里面
         '--temporal_scale',
         type=int,
         default=100)
@@ -126,7 +129,7 @@ def parse_opt():
     parser.add_argument(
         '--pem_batch_size',
         type=int,
-        default=16)
+        default=1)
     parser.add_argument(
         '--pem_u_ratio_m',
         type=float,
@@ -142,7 +145,7 @@ def parse_opt():
     parser.add_argument(
         '--pem_low_iou_thres',
         type=float,
-        default=2.2)
+        default=0.2)
 
     # PEM inference settings
     parser.add_argument(
@@ -158,7 +161,7 @@ def parse_opt():
     parser.add_argument(
         '--pgm_thread',
         type=int,
-        default=8)	
+        default=32)
     parser.add_argument(
         '--num_sample_start',
         type=int,
@@ -188,7 +191,7 @@ def parse_opt():
     parser.add_argument(
         '--post_process_thread',
         type=int,
-        default=8)
+        default=32)
     parser.add_argument(
         '--soft_nms_alpha',
         type=float,
