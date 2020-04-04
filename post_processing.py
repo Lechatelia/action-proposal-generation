@@ -23,7 +23,7 @@ def getDatasetDict(opt):
         video_new_info["feature_frame"]=video_info['feature_frame']
         video_subset=df.subset.values[i]
         video_new_info['annotations']=video_info['annotations']
-        if video_subset==opt["pem_inference_subset"]:
+        if video_subset==opt["pem_inference_subset"]: # 只添加这个subset的video信息
             video_dict[video_name]=video_new_info
     return video_dict
 
@@ -75,27 +75,27 @@ def Soft_NMS(df,opt):
 def video_post_process(opt,video_list,video_dict):
 
     for video_name in video_list:
-        df=pd.read_csv("./output/PEM_results/"+video_name+".csv")
+        df=pd.read_csv("./output/PEM_results/"+video_name+".csv") # 读取见过
     
-        df['score']=df.iou_score.values[:]*df.xmin_score.values[:]*df.xmax_score.values[:]
+        df['score']=df.iou_score.values[:]*df.xmin_score.values[:]*df.xmax_score.values[:] # num_proposals score的融合
         if len(df)>1:
-            df=Soft_NMS(df,opt)
+            df=Soft_NMS(df,opt) # 进行NMS
         
-        df=df.sort_values(by="score",ascending=False)
+        df=df.sort_values(by="score",ascending=False) #分数的排序
         video_info=video_dict[video_name]
-        video_duration=float(video_info["duration_frame"]/16*16)/video_info["duration_frame"]*video_info["duration_second"]
+        video_duration=float(video_info["duration_frame"]/16*16)/video_info["duration_frame"]*video_info["duration_second"] #没看出来有啥用
         proposal_list=[]
     
         for j in range(min(opt["post_process_top_K"],len(df))):
             tmp_proposal={}
             tmp_proposal["score"]=df.score.values[j]
-            tmp_proposal["segment"]=[max(0,df.xmin.values[j])*video_duration,min(1,df.xmax.values[j])*video_duration]
+            tmp_proposal["segment"]=[max(0,df.xmin.values[j])*video_duration,min(1,df.xmax.values[j])*video_duration] # 将时间从归一化的时间映射到施水平片段上
             proposal_list.append(tmp_proposal)
-        result_dict[video_name[2:]]=proposal_list
+        result_dict[video_name[2:]]=proposal_list # 添加到global变量中 {vide0_name: [{score:1, segments:[2, 3]},{score:1, segments:[1, 2]}]}}
         
 
 def BSN_post_processing(opt):
-    video_dict=getDatasetDict(opt)
+    video_dict=getDatasetDict(opt) # 返回需要后处理的视频
     video_list=list(video_dict.keys())#[:100]
     del_videl_list = ['v_5HW6mjZZvtY']
     for v in del_videl_list:  # delete the video from video list, whose feature csv is broken
@@ -109,7 +109,7 @@ def BSN_post_processing(opt):
     num_videos = len(video_list)
     num_videos_per_thread = int(num_videos/opt["post_process_thread"])
     processes = []
-    for tid in range(opt["post_process_thread"]-1):
+    for tid in range(opt["post_process_thread"]-1): #多线程后处理
         tmp_video_list = video_list[tid*num_videos_per_thread:(tid+1)*num_videos_per_thread]
         p = mp.Process(target = video_post_process,args =(opt,tmp_video_list,video_dict,))
         p.start()
@@ -122,7 +122,7 @@ def BSN_post_processing(opt):
         p.join()
     
     result_dict = dict(result_dict)
-    output_dict={"version":"VERSION 1.3","results":result_dict,"external_data":{}}
+    output_dict={"version":"VERSION 1.3","results":result_dict,"external_data":{}} # 按照规则存储proposal的结果
     outfile=open(opt["result_file"],"w")
     json.dump(output_dict,outfile)
     outfile.close()

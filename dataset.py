@@ -51,7 +51,7 @@ class VideoDataSet(data.Dataset):
             video_name=anno_df.video.values[i]
             video_info=anno_database[video_name]
             video_subset=anno_df.subset.values[i] # 读取该视频属于的子数据集 training validation or test
-            if self.subset == "full":
+            if self.subset == "full": #全部都要
                 self.video_dict[video_name] = video_info
             if self.subset in video_subset:
                 self.video_dict[video_name] = video_info # 是需要的数据集样本添加到字典中
@@ -86,7 +86,7 @@ class VideoDataSet(data.Dataset):
         video_frame=video_info['duration_frame']
         video_second=video_info['duration_second']
         feature_frame=video_info['feature_frame']
-        corrected_second=float(feature_frame)/video_frame*video_second  #相当于校准时间
+        corrected_second=float(feature_frame)/video_frame*video_second  #相当于校准时间 因为采用的滑动窗口形式进行提取特征，两个frame会存在一些差异
         video_labels=video_info['annotations']
     
         gt_bbox = []
@@ -146,7 +146,7 @@ class ProposalDataSet(data.Dataset):
         
         self.subset=subset
         self.mode = opt["mode"]
-        if self.mode == "train":
+        if self.mode == "train": # 测试与前推时的样本数量是不一样的
             self.top_K = opt["pem_top_K"]
         else:
             self.top_K = opt["pem_top_K_inference"]
@@ -175,8 +175,8 @@ class ProposalDataSet(data.Dataset):
         print ("After check: csv \n %s subset video numbers: %d" %(self.subset,len(self.video_list)))
         
     def _getDatasetDict(self):
-        anno_df = pd.read_csv(self.video_info_path)
-        anno_database= load_json(self.video_anno_path)
+        anno_df = pd.read_csv(self.video_info_path) #读取信息
+        anno_database= load_json(self.video_anno_path) # 读取相关真值信息
         self.video_dict = {}
         for i in range(len(anno_df)):
             video_name=anno_df.video.values[i]
@@ -194,17 +194,18 @@ class ProposalDataSet(data.Dataset):
 
     def __getitem__(self, index):
         video_name = self.video_list[index]
-        pdf=pandas.read_csv("./output/PGM_proposals/"+video_name+".csv")
+        pdf=pandas.read_csv("./output/PGM_proposals/"+video_name+".csv") # 读取proposal
         pdf=pdf[:self.top_K]
-        video_feature = numpy.load("./output/PGM_feature/" + video_name+".npy")
+        video_feature = numpy.load("./output/PGM_feature/" + video_name+".npy") # read BSP feature for proposals
         video_feature = video_feature[:self.top_K,:]
         #print len(video_feature),len(pdf)
         video_feature = torch.Tensor(video_feature)
 
         if self.mode == "train":
-            video_match_iou = torch.Tensor(pdf.match_iou.values[:])
-            return video_feature,video_match_iou
+            video_match_iou = torch.Tensor(pdf.match_iou.values[:]) # choose IOU as gt  已经在TEM inference阶段计算好
+            return video_feature,video_match_iou # [bs, 32] [bs]
         else:
+            # 取得proposals的 starting location， ending location, starting score, ending score
             video_xmin =pdf.xmin.values[:]
             video_xmax =pdf.xmax.values[:]
             video_xmin_score = pdf.xmin_score.values[:]

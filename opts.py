@@ -129,7 +129,8 @@ def parse_opt():
     parser.add_argument(
         '--pem_batch_size',
         type=int,
-        default=1)
+        default=16)
+        # default=1) # it is set to 1 when inference
     parser.add_argument(
         '--pem_u_ratio_m',
         type=float,
@@ -148,7 +149,7 @@ def parse_opt():
         default=0.2)
 
     # PEM inference settings
-    parser.add_argument(
+    parser.add_argument(  #  如果要测试不同的subset，更改这里就可以，然后运行PEMinference以及后面步骤即可
         '--pem_inference_subset',
         type=str,
         default="validation")

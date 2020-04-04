@@ -30,15 +30,16 @@ def plot_metric(opt,average_nr_proposals, average_recall, recall, tiou_threshold
     
     colors = ['k', 'r', 'yellow', 'b', 'c', 'm', 'b', 'pink', 'lawngreen', 'indigo']
     area_under_curve = np.zeros_like(tiou_thresholds)
-    for i in range(recall.shape[0]):
+    for i in range(recall.shape[0]): #为每一个计算AUC
         area_under_curve[i] = np.trapz(recall[i], average_nr_proposals)
 
-    for idx, tiou in enumerate(tiou_thresholds[::2]):
+    for idx, tiou in enumerate(tiou_thresholds[::2]): # 绘制 0.5 0.6 0.7 0.8 0.9的ar曲线
         ax.plot(average_nr_proposals, recall[2*idx,:], color=colors[idx+1],
-                label="tiou=[" + str(tiou) + "], area=" + str(int(area_under_curve[2*idx]*100)/100.), 
+                label="tiou=[" + str(tiou) + "], area=" + str(int(area_under_curve[2*idx]*100)/100.),
+                #the first 100 is max_avg_number_of_proposals, the seconds 100. is for the percentage presentation.
                 linewidth=4, linestyle='--', marker=None)
     # Plots Average Recall vs Average number of proposals.
-    ax.plot(average_nr_proposals, average_recall, color=colors[0],
+    ax.plot(average_nr_proposals, average_recall, color=colors[0], # 绘制均值ar曲线
             label="tiou = 0.5:0.05:0.95," + " area=" + str(int(np.trapz(average_recall, average_nr_proposals)*100)/100.), 
             linewidth=4, linestyle='-', marker=None)
 
@@ -59,10 +60,11 @@ def evaluation_proposal(opt):
     uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid = run_evaluation(
         "./Evaluation/data/activity_net_1_3_new.json",
         opt["result_file"],
-        max_avg_nr_proposals=100,
-        tiou_thresholds=np.linspace(0.5, 0.95, 10),
+        max_avg_nr_proposals=100, # AN的最高限制
+        tiou_thresholds=np.linspace(0.5, 0.95, 10), # 插值十个点
         subset='validation')
-    
+    # 返回 average number of proposals， average recall， 不同阈值下面的recall
+    # [100] [100] [10, 100] 这个100等于max_avg_nr_proposals
     plot_metric(opt,uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid)
     print ("AR@1 is \t",np.mean(uniform_recall_valid[:,0]))
     print ("AR@5 is \t",np.mean(uniform_recall_valid[:,4]))

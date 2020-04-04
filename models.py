@@ -71,4 +71,4 @@ class PEM(torch.nn.Module):
     def forward(self, x):
         x = F.relu(0.1*self.fc1(x))
         x = torch.sigmoid(0.1*self.fc2(x))
-        return x
+        return x # [num_proposal,1]

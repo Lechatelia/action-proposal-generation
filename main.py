@@ -25,7 +25,7 @@ def train_TEM(data_loader,model,optimizer,epoch,writer,opt):
     epoch_end_loss = 0
     epoch_cost = 0
     for n_iter,(input_data,label_action,label_start,label_end) in enumerate(data_loader):
-        TEM_output = model(input_data) # [bs, 3, 100]
+        TEM_output = model(input_data.cuda()) # [bs, 3, 100]
         loss = TEM_loss_function(label_action,label_start,label_end,TEM_output,opt)
         cost = loss["cost"] # 得到损失函数
         
@@ -59,7 +59,7 @@ def test_TEM(data_loader,model,epoch,writer,opt):
     epoch_cost = 0
     for n_iter,(input_data,label_action,label_start,label_end) in enumerate(data_loader):
         
-        TEM_output = model(input_data)
+        TEM_output = model(input_data.cuda())
         loss = TEM_loss_function(label_action,label_start,label_end,TEM_output,opt)
         epoch_action_loss += loss["loss_action"].cpu().detach().numpy()
         epoch_start_loss += loss["loss_start"].cpu().detach().numpy()
@@ -86,8 +86,8 @@ def train_PEM(data_loader,model,optimizer,epoch,writer,opt):
     epoch_iou_loss = 0
     
     for n_iter,(input_data,label_iou) in enumerate(data_loader):
-        PEM_output = model(input_data)
-        iou_loss = PEM_loss_function(PEM_output,label_iou,model,opt)
+        PEM_output = model(input_data.cuda())
+        iou_loss = PEM_loss_function(PEM_output,label_iou,model,opt) # loss smooth_l1_loss
         optimizer.zero_grad()
         iou_loss.backward()
         optimizer.step()
@@ -102,7 +102,7 @@ def test_PEM(data_loader,model,epoch,writer,opt):
     epoch_iou_loss = 0
     
     for n_iter,(input_data,label_iou) in enumerate(data_loader):
-        PEM_output = model(input_data)
+        PEM_output = model(input_data.cuda())
         iou_loss = PEM_loss_function(PEM_output,label_iou,model,opt)
         epoch_iou_loss += iou_loss.cpu().detach().numpy()
 
@@ -147,9 +147,9 @@ def BSN_Train_PEM(opt):
     
     optimizer = optim.Adam(model.parameters(),lr=opt["pem_training_lr"],weight_decay = opt["pem_weight_decay"])
     
-    def collate_fn(batch):
-        batch_data = torch.cat([x[0] for x in batch])
-        batch_iou = torch.cat([x[1] for x in batch])
+    def collate_fn(batch): # 如何收集一个batch的数据
+        batch_data = torch.cat([x[0] for x in batch]) #在第一个维度上面直接拼接 [num_proposals, 32]
+        batch_iou = torch.cat([x[1] for x in batch]) # num_proposals
         return batch_data,batch_iou
     
     train_loader = torch.utils.data.DataLoader(ProposalDataSet(opt,subset="train"),
@@ -165,7 +165,7 @@ def BSN_Train_PEM(opt):
         
     for epoch in range(opt["pem_epoch"]):
         scheduler.step()
-        train_PEM(train_loader,model,optimizer,epoch,writer,opt) # 训练
+        train_PEM(train_loader,model,optimizer,epoch,writer,opt) # PEM训练
         test_PEM(test_loader,model,epoch,writer,opt) # 测试
         
     writer.close()
@@ -187,7 +187,7 @@ def BSN_inference_TEM(opt):
     # 主要是将各个视频的三个概率序列给存储起来，便于后续模块生成proposal
     for index_list,input_data,anchor_xmin,anchor_xmax in test_loader:
         
-        TEM_output = model(input_data).detach().cpu().numpy()
+        TEM_output = model(input_data.cuda()).detach().cpu().numpy()
         batch_action = TEM_output[:,0,:]
         batch_start = TEM_output[:,1,:]
         batch_end = TEM_output[:,2,:]
@@ -216,18 +216,19 @@ def BSN_inference_PEM(opt):
     model.eval()
     
     test_loader = torch.utils.data.DataLoader(ProposalDataSet(opt,subset=opt["pem_inference_subset"]),
-                                                batch_size=model.module.batch_size, shuffle=False,
+                                                # batch_size=model.module.batch_size, shuffle=False,
+                                                batch_size=1, shuffle=False,  # bs is set to 1
                                                 num_workers=8, pin_memory=True,drop_last=False)
     
     for idx,(video_feature,video_xmin,video_xmax,video_xmin_score,video_xmax_score) in enumerate(test_loader):
         video_name = test_loader.dataset.video_list[idx]
-        video_conf = model(video_feature).view(-1).detach().cpu().numpy()
+        video_conf = model(video_feature.cuda()).view(-1).detach().cpu().numpy() # 得到评估分数
         video_xmin = video_xmin.view(-1).cpu().numpy()
         video_xmax = video_xmax.view(-1).cpu().numpy()
         video_xmin_score = video_xmin_score.view(-1).cpu().numpy()
         video_xmax_score = video_xmax_score.view(-1).cpu().numpy()
         
-        df=pd.DataFrame()
+        df=pd.DataFrame() # 存储proposals的结果，分别对应着三个分数，starting/ending location scores, evaluation score from PEM
         df["xmin"]=video_xmin
         df["xmax"]=video_xmax
         df["xmin_score"]=video_xmin_score
@@ -256,25 +257,25 @@ def main(opt):
         if not os.path.exists("output/PGM_proposals"):
             os.makedirs("output/PGM_proposals") 
         print ("PGM: start generate proposals" )
-        PGM_proposal_generation(opt) # generate proposal
+        PGM_proposal_generation(opt) # using staring and ending possibility produced by TEM to generate proposal
         print ("PGM: finish generate proposals" )
         
         if not os.path.exists("output/PGM_feature"):
             os.makedirs("output/PGM_feature")  #
         print ("PGM: start generate BSP feature" )
-        PGM_feature_generation(opt) #generate bsp features and store them
+        PGM_feature_generation(opt) #generate BSP features for all candidate proposals and store them
         print ("PGM: finish generate BSP feature" )
     
     elif opt["module"] == "PEM":
         if opt["mode"] == "train":
             print ("PEM training start" )
-            BSN_Train_PEM(opt)
+            BSN_Train_PEM(opt) # train PEM module
             print ("PEM training finished")
         elif opt["mode"] == "inference":
             if not os.path.exists("output/PEM_results"):
                 os.makedirs("output/PEM_results") 
             print ("PEM inference start" )
-            BSN_inference_PEM(opt)
+            BSN_inference_PEM(opt) # evaluate the proposal from one subset and store them
             print ("PEM inference finished")
         else:
             print ("Wrong mode. PEM has two modes: train and inference")
