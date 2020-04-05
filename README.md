@@ -1,10 +1,11 @@
-# BSN-boundary-sensitive-network.pytorch
+# Temporal action proposal generation
 
-This repo holds the pytorch-version codes of paper: "BSN: Boundary Sensitive Network for Temporal Action Proposal Generation", which is accepted in ECCV 2018.
-[[Arxiv Preprint]](http://arxiv.org/abs/1806.02964) 
+This repo holds the pytorch-version codes of papers: "BSN: Boundary Sensitive Network for Temporal Action Proposal Generation", which is accepted in ECCV 2018
+[[Arxiv Preprint]](http://arxiv.org/abs/1806.02964). And "BMN: Boundary-Matching Network" in ICCV 2019 [[Arxiv Preprint]](https://arxiv.org/abs/1907.09702).
 
 This repo is forked from [the awesome work](https://github.com/wzmsltw/BSN-boundary-sensitive-network.pytorch) by Tianwei Lin.
-
+And this implementation also largely borrows from [BMN work](https://github.com/JJBOY/BMN-Boundary-Matching-Network).
+ 
 I want to implement some of my own ideas based on this code.
 
 

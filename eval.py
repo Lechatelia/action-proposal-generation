@@ -22,7 +22,8 @@ def run_evaluation(ground_truth_filename, proposal_filename,
     
     return (average_nr_proposals, average_recall, recall)
 
-def plot_metric(opt,average_nr_proposals, average_recall, recall, tiou_thresholds=np.linspace(0.5, 0.95, 10)):
+def plot_metric(opt,average_nr_proposals, average_recall, recall,
+                tiou_thresholds=np.linspace(0.5, 0.95, 10),save_fig_path="./output/evaluation_result.jpg"):
 
     fn_size = 14
     plt.figure(num=None, figsize=(12, 8))
@@ -55,17 +56,17 @@ def plot_metric(opt,average_nr_proposals, average_recall, recall, tiou_threshold
     #plt.show()    
     plt.savefig(opt["save_fig_path"])
 
-def evaluation_proposal(opt):
+def evaluation_proposal(opt, result_file="./output/result_proposal.json", save_fig_path="./output/evaluation_result.jpg"):
     
     uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid = run_evaluation(
         "./Evaluation/data/activity_net_1_3_new.json",
-        opt["result_file"],
-        max_avg_nr_proposals=100, # AN的最高限制
+        result_file,
+        max_avg_nr_proposals=100, # AN的最高限制 activitynet官方也是最大这个限制
         tiou_thresholds=np.linspace(0.5, 0.95, 10), # 插值十个点
         subset='validation')
     # 返回 average number of proposals， average recall， 不同阈值下面的recall
     # [100] [100] [10, 100] 这个100等于max_avg_nr_proposals
-    plot_metric(opt,uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid)
+    plot_metric(opt,uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid, save_fig_path=save_fig_path)
     print ("AR@1 is \t",np.mean(uniform_recall_valid[:,0]))
     print ("AR@5 is \t",np.mean(uniform_recall_valid[:,4]))
     print ("AR@10 is \t",np.mean(uniform_recall_valid[:,9]))

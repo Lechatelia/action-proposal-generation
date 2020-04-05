@@ -7,14 +7,15 @@ def parse_opt():
     parser.add_argument(
         '--module',
         type=str,
-        default='Evaluation')
+        # default='BSN_Evaluation')
         # default='Post_processing')
         # default='PEM')
+        default='BMN')
     parser.add_argument(
         '--mode',
         type=str,
-        # default='train')
-        default='inference')
+        default='train')
+        # default='inference')
     parser.add_argument(
         '--checkpoint_path',
         type=str,
@@ -43,7 +44,26 @@ def parse_opt():
         '--feature_path',
         type=str,
         default="./data/activitynet_feature_cuhk/")
-    
+
+    # BMN Dataset settings
+    parser.add_argument(
+        '--bmn_num_sample',
+        type=int,
+        default=32)
+    parser.add_argument(
+        '--bmn_num_sample_perbin',
+        type=int,
+        default=3)
+    parser.add_argument(
+        '--bmn_prop_boundary_ratio',
+        type=int,
+        default=0.5)
+
+    parser.add_argument(
+        '--bmn_feat_dim',
+        type=int,
+        default=400)
+
     # PEM Dataset settings
     parser.add_argument(
         '--pem_top_K',
@@ -148,6 +168,33 @@ def parse_opt():
         type=float,
         default=0.2)
 
+    # BMN Training settings
+    parser.add_argument(
+        '--bmn_training_lr',
+        type=float,
+        default=0.001)
+    parser.add_argument(
+        '--bmn_weight_decay',
+        type=float,
+        default=1e-4)
+
+    parser.add_argument(
+        '--bmn_train_epochs',
+        type=int,
+        default=9)
+    parser.add_argument(
+        '--bmn_batch_size',
+        type=int,
+        default=16)
+    parser.add_argument(
+        '--bmn_step_size',
+        type=int,
+        default=7)
+    parser.add_argument(
+        '--bmn_step_gamma',
+        type=float,
+        default=0.1)
+
     # PEM inference settings
     parser.add_argument(  #  如果要测试不同的subset，更改这里就可以，然后运行PEMinference以及后面步骤即可
         '--pem_inference_subset',
@@ -213,6 +260,32 @@ def parse_opt():
         '--save_fig_path',
         type=str,
         default="./output/evaluation_result.jpg")
+
+    # BMN Post processing
+    parser.add_argument(
+        '--bmn_post_process_thread',
+        type=int,
+        default=32)
+    parser.add_argument(
+        '--bmn_soft_nms_alpha',
+        type=float,
+        default=0.4)
+    parser.add_argument(
+        '--bmn_soft_nms_low_thres',
+        type=float,
+        default=0.5)
+    parser.add_argument(
+        '--bmn_soft_nms_high_thres',
+        type=float,
+        default=0.9)
+    parser.add_argument(
+        '--bmn_result_file',
+        type=str,
+        default="./output/bmn_result_proposal.json")
+    parser.add_argument(
+        '--bmn_save_fig_path',
+        type=str,
+        default="./output/bmn_evaluation_result.jpg")
 
     args = parser.parse_args()
 
