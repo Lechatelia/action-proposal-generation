@@ -7,15 +7,16 @@ def parse_opt():
     parser.add_argument(
         '--module',
         type=str,
-        # default='BSN_Evaluation')
-        # default='Post_processing')
+        default='BSN_Evaluation')
+        # default='BMN_Evaluation')
+        # default='BMN_Post_processing')
         # default='PEM')
-        default='BMN')
+        # default='BMN')
     parser.add_argument(
         '--mode',
         type=str,
-        default='train')
-        # default='inference')
+        # default='train')
+        default='inference')
     parser.add_argument(
         '--checkpoint_path',
         type=str,

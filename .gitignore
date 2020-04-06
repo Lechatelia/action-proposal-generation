@@ -1,4 +1,5 @@
 .idea/
 /checkpoint
 /data
-output/
+output/result_proposal.json
+output/bmn_result_proposal.json

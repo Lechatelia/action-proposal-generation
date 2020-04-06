@@ -54,7 +54,7 @@ def plot_metric(opt,average_nr_proposals, average_recall, recall,
     plt.setp(plt.axes().get_xticklabels(), fontsize=fn_size)
     plt.setp(plt.axes().get_yticklabels(), fontsize=fn_size)
     #plt.show()    
-    plt.savefig(opt["save_fig_path"])
+    plt.savefig(save_fig_path)
 
 def evaluation_proposal(opt, result_file="./output/result_proposal.json", save_fig_path="./output/evaluation_result.jpg"):
     
