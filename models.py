@@ -88,7 +88,7 @@ class BMN(nn.Module):
         self.hidden_dim_2d = 128
         self.hidden_dim_3d = 512
 
-        self._get_interp1d_mask()
+        self._get_interp1d_mask() # 得到一维插值的mask
 
         # Base Module
         self.x_1d_b = nn.Sequential(
@@ -133,67 +133,69 @@ class BMN(nn.Module):
         )
 
     def forward(self, x):
-        base_feature = self.x_1d_b(x)
-        start = self.x_1d_s(base_feature).squeeze(1)
-        end = self.x_1d_e(base_feature).squeeze(1)
-        confidence_map = self.x_1d_p(base_feature)
-        confidence_map = self._boundary_matching_layer(confidence_map)
-        confidence_map = self.x_3d_p(confidence_map).squeeze(2)
-        confidence_map = self.x_2d_p(confidence_map)
+        base_feature = self.x_1d_b(x) # bs, 256, 100
+        start = self.x_1d_s(base_feature).squeeze(1) # bs, 100
+        end = self.x_1d_e(base_feature).squeeze(1) # bs, 100
+        confidence_map = self.x_1d_p(base_feature) # bs, 256, 100
+        confidence_map = self._boundary_matching_layer(confidence_map) # bs, 256, 32, 100, 100
+        confidence_map = self.x_3d_p(confidence_map).squeeze(2) #[bs, 256, 100, 100]
+        confidence_map = self.x_2d_p(confidence_map) # [bs, 2, 256, 256]
         return confidence_map, start, end
 
     def _boundary_matching_layer(self, x):
-        input_size = x.size()
-        out = torch.matmul(x, self.sample_mask).reshape(input_size[0],input_size[1],self.num_sample,self.tscale,self.tscale)
+        input_size = x.size() # 2, 256, 100
+        # 矩阵乘法  插值 mask [bs, 256, T=100]*[T=100, 32*D*T=320000] 得到的实际上是bm feature map
+        out = torch.matmul(x, self.sample_mask).reshape(input_size[0],input_size[1],self.num_sample,self.tscale,self.tscale) # bs, 256, 32, D, T
         return out
 
     def _get_interp1d_bin_mask(self, seg_xmin, seg_xmax, tscale, num_sample, num_sample_perbin):
-        # generate sample mask for a boundary-matching pair
+        # generate sample mask for a boundary-matching pair 用于给一个candidate proposals产生插值mask
         plen = float(seg_xmax - seg_xmin)
-        plen_sample = plen / (num_sample * num_sample_perbin - 1.0)
+        plen_sample = plen / (num_sample * num_sample_perbin - 1.0) # 每一个采样范围大小 实际上是采样了32*3个小区间 采样3个小区间而不是单纯的1个小区间线性插值是为了减小误差，
+        # 相当于取周围三个点，这三个点都是通过1D插值得到的，然后均值其mask weights即可
         total_samples = [
             seg_xmin + plen_sample * ii
             for ii in range(num_sample * num_sample_perbin)
-        ]
+        ] # 每一个采样点位置
         p_mask = []
-        for idx in range(num_sample):
+        for idx in range(num_sample): #0到32个采样mask weight 每一个proposal的时间维度通过插值要归一化到32
             bin_samples = total_samples[idx * num_sample_perbin:(idx + 1) * num_sample_perbin]
-            bin_vector = np.zeros([tscale])
+            bin_vector = np.zeros([tscale]) # 先用0初始化这一行mask weight
             for sample in bin_samples:
-                sample_upper = math.ceil(sample)
-                sample_decimal, sample_down = math.modf(sample)
+                sample_upper = math.ceil(sample) # 大于这个数的第一个整数
+                sample_decimal, sample_down = math.modf(sample) # 整数部分 与 小数部分
                 if int(sample_down) <= (tscale - 1) and int(sample_down) >= 0:
-                    bin_vector[int(sample_down)] += 1 - sample_decimal
+                    bin_vector[int(sample_down)] += 1 - sample_decimal # 下采样点的mask 等于1-小数部分
                 if int(sample_upper) <= (tscale - 1) and int(sample_upper) >= 0:
-                    bin_vector[int(sample_upper)] += sample_decimal
-            bin_vector = 1.0 / num_sample_perbin * bin_vector
+                    bin_vector[int(sample_upper)] += sample_decimal # 上采样点的mask 等于小数部分
+            bin_vector = 1.0 / num_sample_perbin * bin_vector # 因为采用了三个点的均值，所以1/3 [100]
             p_mask.append(bin_vector)
-        p_mask = np.stack(p_mask, axis=1)
+        p_mask = np.stack(p_mask, axis=1) #[100, 32]
         return p_mask
 
     def _get_interp1d_mask(self):
-        # generate sample mask for each point in Boundary-Matching Map
+        # generate sample mask for each point in Boundary-Matching Map 用于产生BM feature map
         mask_mat = []
         for start_index in range(self.tscale):
             mask_mat_vector = []
-            for duration_index in range(self.tscale):
+            for duration_index in range(self.tscale): # 对于BM map上(i,j)个点都要生成一个32*T的map i=duration_index j=start_index
                 if start_index + duration_index < self.tscale:
                     p_xmin = start_index
                     p_xmax = start_index + duration_index
                     center_len = float(p_xmax - p_xmin) + 1
-                    sample_xmin = p_xmin - center_len * self.prop_boundary_ratio
+                    sample_xmin = p_xmin - center_len * self.prop_boundary_ratio # 采样区域应该也包括周围部分
                     sample_xmax = p_xmax + center_len * self.prop_boundary_ratio
-                    p_mask = self._get_interp1d_bin_mask(
+                    p_mask = self._get_interp1d_bin_mask( # 对于这个点产生1d插值的 mask
                         sample_xmin, sample_xmax, self.tscale, self.num_sample,
-                        self.num_sample_perbin)
+                        self.num_sample_perbin) #[100, 32]
                 else:
-                    p_mask = np.zeros([self.tscale, self.num_sample])
+                    p_mask = np.zeros([self.tscale, self.num_sample]) # [100, 32]
                 mask_mat_vector.append(p_mask)
-            mask_mat_vector = np.stack(mask_mat_vector, axis=2)
+            mask_mat_vector = np.stack(mask_mat_vector, axis=2) #[100, 32, D]
             mask_mat.append(mask_mat_vector)
-        mask_mat = np.stack(mask_mat, axis=3)
-        mask_mat = mask_mat.astype(np.float32)
-        self.sample_mask = nn.Parameter(torch.Tensor(mask_mat).view(self.tscale, -1), requires_grad=False)
+        mask_mat = np.stack(mask_mat, axis=3) #[100, 32, 100, 100] float64
+        mask_mat = mask_mat.astype(np.float32) # to float32
+        self.sample_mask = nn.Parameter(torch.Tensor(mask_mat).view(self.tscale, -1), requires_grad=False) # [100, 32*D*T] 因为DT 都不改变，可以直接一直用，而不用动态生成
 
 
 if __name__ == '__main__':

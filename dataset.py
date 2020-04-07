@@ -70,7 +70,7 @@ class VideoDataSet(data.Dataset):
     def _get_base_data(self,index):
         video_name=self.video_list[index]
         anchor_xmin=[self.temporal_gap*i for i in range(self.temporal_scale)] # 0.00 d到 0.99
-        anchor_xmax=[self.temporal_gap*i for i in range(1,self.temporal_scale+1)] # 0.01到0.10
+        anchor_xmax=[self.temporal_gap*i for i in range(1,self.temporal_scale+1)] # 0.01到1.00
         try:
             video_df=pd.read_csv(self.feature_path+ "csv_mean_"+str(self.temporal_scale)+"/"+video_name+".csv") # 得到这个视频的特征
         except:
@@ -278,18 +278,20 @@ class BMN_VideoDataSet(data.Dataset):
         match_map = []
         for idx in range(self.temporal_scale):
             tmp_match_window = []
-            xmin = self.temporal_gap * idx
+            xmin = self.temporal_gap * idx # start locaiton 归一化之后的
             for jdx in range(1, self.temporal_scale + 1):
-                xmax = xmin + self.temporal_gap * jdx
+                xmax = xmin + self.temporal_gap * jdx # ending location 加上duration
                 tmp_match_window.append([xmin, xmax])
             match_map.append(tmp_match_window)
-        match_map = np.array(match_map)  # 100x100x2
-        match_map = np.transpose(match_map, [1, 0, 2])  # [0,1] [1,2] [2,3].....[99,100]
-        match_map = np.reshape(match_map, [-1, 2])  # [0,2] [1,3] [2,4].....[99,101]   # duration x start
+        match_map = np.array(match_map)  # 100x100x2 最后一个2代表BM map上面每一个代表的candidate proposals所代表的时域范围 [start, duration, 2]
+        match_map = np.transpose(match_map, [1, 0, 2])  # [0.00,0.01] [0.01,0.02] [0.02,0.03].....[0.99,0.100] [duration, start, 2]
+        match_map = np.reshape(match_map, [-1, 2])  # [0,2] [1,3] [2,4].....[99,101]   # duration x start [100*100, 2]
         self.match_map = match_map  # duration is same in row, start is same in col
-        self.anchor_xmin = [self.temporal_gap * (i-0.5) for i in range(self.temporal_scale)]
-        self.anchor_xmax = [self.temporal_gap * (i+0.5) for i in range(1, self.temporal_scale + 1)]
-
+        self.anchor_xmin = [self.temporal_gap * (i-0.5) for i in range(self.temporal_scale)] # 每一个 snippet 的 开始时间
+        self.anchor_xmax = [self.temporal_gap * (i+0.5) for i in range(1, self.temporal_scale + 1)] # 每一个 snippet的结束时刻
+        # 注意从产生特征的角度来看，上面的anchor min 和anchor max 应该和BSN一样，不减去0.5，
+        # 比如第一个特征的就是由0-16帧图片产生，最后一个特征就是-16到-1的图片产生，应该 不用减去那个0.5
+        # 之后可以通过实验验证一下是否影响精度 相反，我觉得上面的match map应该加上0,5 因为每个snippet的中央区域在中间 但是因为是离线处理，所以不应该纠结那么多
     def _load_file(self, index):
         video_name = self.video_list[index]
         video_df = pd.read_csv(self.feature_path + "csv_mean_" + str(self.temporal_scale) + "/" + video_name + ".csv")
@@ -312,36 +314,36 @@ class BMN_VideoDataSet(data.Dataset):
         # change the measurement from second to percentage
         gt_bbox = []
         gt_iou_map = []
-        for j in range(len(video_labels)):
+        for j in range(len(video_labels)): #对于每个Proposal
             tmp_info = video_labels[j]
-            tmp_start = max(min(1, tmp_info['segment'][0] / corrected_second), 0)
+            tmp_start = max(min(1, tmp_info['segment'][0] / corrected_second), 0) # 归一化时间
             tmp_end = max(min(1, tmp_info['segment'][1] / corrected_second), 0)
             gt_bbox.append([tmp_start, tmp_end])
-            tmp_gt_iou_map = iou_with_anchors(
+            tmp_gt_iou_map = iou_with_anchors( # 每一个候选的proposals计算IOU
                 self.match_map[:, 0], self.match_map[:, 1], tmp_start, tmp_end)
             tmp_gt_iou_map = np.reshape(tmp_gt_iou_map,
-                                        [self.temporal_scale, self.temporal_scale])
+                                        [self.temporal_scale, self.temporal_scale]) # [100, 100] 相当于BM map的label
             gt_iou_map.append(tmp_gt_iou_map)
-        gt_iou_map = np.array(gt_iou_map)
-        gt_iou_map = np.max(gt_iou_map, axis=0)
+        gt_iou_map = np.array(gt_iou_map) # [num_gt, 100, 100]
+        gt_iou_map = np.max(gt_iou_map, axis=0) # 取最大的IOU作为gt [100, 100]
         gt_iou_map = torch.Tensor(gt_iou_map)
         ##############################################################################################
 
         ####################################################################################################
-        # generate R_s and R_e
+        # generate R_s and R_e # 构建增强后的start region和ending region
         gt_bbox = np.array(gt_bbox)
         gt_xmins = gt_bbox[:, 0]
         gt_xmaxs = gt_bbox[:, 1]
         gt_lens = gt_xmaxs - gt_xmins
-        gt_len_small = 3 * self.temporal_gap  # np.maximum(self.temporal_gap, self.boundary_ratio * gt_lens)
+        gt_len_small = 3 * self.temporal_gap  # np.maximum(self.temporal_gap, self.boundary_ratio * gt_lens) # 直接用绝对大小代表增强区域的大小
         gt_start_bboxs = np.stack((gt_xmins - gt_len_small / 2, gt_xmins + gt_len_small / 2), axis=1)
-        gt_end_bboxs = np.stack((gt_xmaxs - gt_len_small / 2, gt_xmaxs + gt_len_small / 2), axis=1)
+        gt_end_bboxs = np.stack((gt_xmaxs - gt_len_small / 2, gt_xmaxs + gt_len_small / 2), axis=1) # 产生增强之后的两个区域
         #####################################################################################################
 
         ##########################################################################################################
-        # calculate the ioa for all timestamp
+        # calculate the ioa for all timestamp # 计算两个概率序列的真值
         match_score_start = []
-        for jdx in range(len(anchor_xmin)):
+        for jdx in range(len(anchor_xmin)): # 针对每一个anchor都计算与gt之间的ioa作为真值
             match_score_start.append(np.max(
                 ioa_with_anchors(anchor_xmin[jdx], anchor_xmax[jdx], gt_start_bboxs[:, 0], gt_start_bboxs[:, 1])))
         match_score_end = []
@@ -352,7 +354,7 @@ class BMN_VideoDataSet(data.Dataset):
         match_score_end = torch.Tensor(match_score_end)
         ############################################################################################################
 
-        return match_score_start, match_score_end, gt_iou_map
+        return match_score_start, match_score_end, gt_iou_map # 三个真值 [100], [100], [100,100]
 
     def __len__(self):
         return len(self.video_list)
