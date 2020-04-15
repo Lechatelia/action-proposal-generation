@@ -197,7 +197,9 @@ class Visualizer():
 
         plt.show()
 
-
+    def visual_proposals(self):
+        pass
+    
 if __name__ == "__main__":
     vis = Visualizer()
     print("there are {} videos".format(len(vis.video_list)))
