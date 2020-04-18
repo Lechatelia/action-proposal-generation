@@ -27,6 +27,7 @@ class Visualizer():
         self.feature_path = "./data/activitynet_feature_cuhk/"
         self.video_info_path = "./data/activitynet_annotations/video_info_new.csv"
         self.video_anno_path = "./data/activitynet_annotations/anet_anno_action.json"
+        self.proposal_result = "./output/result_proposal.json"
         self.get_gt()
         self.check_csv()
 
@@ -198,9 +199,82 @@ class Visualizer():
         plt.show()
 
     def visual_proposals(self):
-        pass
-    
+        self.proposals = load_json(self.proposal_result)['results']
+        for i in range(len(self.video_list)):
+            self.visualize(i)
+            self.visualize_proposal(i)
+
+    def visualize_proposal(self, index):
+        index = index % len(self.video_list)
+        video_name = self.video_list[index]
+        print("visualize {}".format(video_name))
+
+        video_info = self.video_dict[
+            video_name]  # 包括duration_second duration_frame annotations and feature_frame 但是这个特征长度已经被归一化了
+        video_frame = video_info['duration_frame']
+        video_second = video_info['duration_second']
+        feature_frame = video_info['feature_frame']
+        corrected_second = float(feature_frame) / video_frame * video_second  # 相当于校准时间 因为采用的滑动窗口形式进行提取特征，两个frame会存在一些差异
+        video_labels = video_info['annotations']
+
+        proposals = self.proposals[video_name[2:]]
+        result = []
+        for proposal in proposals:
+            # 时间归一化
+            tmp_start = max(min(1, proposal['segment'][0] / corrected_second), 0)
+            tmp_end = max(min(1, proposal['segment'][1] / corrected_second), 0)
+            result.append([tmp_start, tmp_end, proposal['score']])
+        result = np.array(result)
+        # 按照分数排序
+        result = result[np.lexsort(result.T)[::-1]] # [100, 3]
+
+        gt_bbox = []
+        for j in range(len(video_labels)):  # 将时间归一化 0到1之间
+            tmp_info = video_labels[j]
+            tmp_start = max(min(1, tmp_info['segment'][0] / corrected_second), 0)
+            tmp_end = max(min(1, tmp_info['segment'][1] / corrected_second), 0)
+            gt_bbox.append([tmp_start, tmp_end])
+        if len(gt_bbox) == 0:
+            gt_bbox.append([0.0, 0.0])
+        gt_bbox = np.array(gt_bbox)
+
+        colors = [ 'teal', "green", 'blueviolet', 'cyan', 'tomato','r']
+        self.plot_proposals(result[:5,:], gt_bbox, colors)
+
+    def plot_proposals(self, proposals, gts, colors):
+        # proposal [N1, 3] start, end, score
+        # gts [N2, 2] start, end
+        # colors [N1+1]
+        assert len(colors)==proposals.shape[0]+1
+        # plt.xlim((0, 1))
+        for  i in range(proposals.shape[0]):
+            # plt.subplot(len(colors), 1, i+2)
+            proposal = proposals[i]
+            proposal_duration = np.linspace(proposal[0], proposal[1], 5)
+            plt.fill_between(proposal_duration, len(proposals)-i-0.95, len(proposals)-i-0.05, color=colors[i],
+                             alpha=0.3, interpolate=True)
+            plt.text((proposal[0] + proposal[1])/2,  len(proposals)-i-0.8,"%.2f"%proposal[2],ha='center', va='bottom',fontsize=10)
+        plt.xlabel('proposal')
+        for gt in gts:
+            # plt.subplot(len(colors), 1, len(colors))
+            gt_duration = np.linspace(gt[0], gt[1], 10)
+            plt.fill_between(gt_duration, len(proposals), len(proposals)+ 1, color=colors[-1],
+                             alpha=0.3, interpolate=True, label='lable')
+            plt.xlabel('label')
+        # plt.ylabel('start')
+
+        plt.show()
+
+
+
+
+
 if __name__ == "__main__":
-    vis = Visualizer()
+    # vis = Visualizer("full")
+    # vis.visual_rand() # 用于三个概率序列的可视化
+    # print("there are {} videos".format(len(vis.video_list)))
+
+    # 用于最终proposal的可视化
+    vis = Visualizer("validation") # should be opt["pem_inference_subset"]
     print("there are {} videos".format(len(vis.video_list)))
-    vis.visual_rand()
+    vis.visual_proposals() # 用于最终proposals结果的可视化操作

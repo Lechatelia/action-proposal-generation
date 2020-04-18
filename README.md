@@ -12,8 +12,9 @@ I want to implement some of my own ideas based on this code.
 # Update
 Support python3
 
-BSN on Activitynet is Ok! The result can be found [here](my_results.md).
+BSN and BMN on Activitynet is Ok! The result can be found [here](my_results.md).
 
+Add visualization codes
 # Todo
 1, The way to produce ground truth of TEM is one by one and not efficient enough, change it with matrix way.
 
@@ -24,6 +25,9 @@ BSN on Activitynet is Ok! The result can be found [here](my_results.md).
 4, reproduce the performance on ActivityNet1.3 dataset.
 
 5, reproduce the performance on THUMOS14 dataset.
+
+ <img src="output/TEM.png" width = "500" alt="image" align=center />
+ <img src="output/PEM.png" width = "500" alt="image" align=center />
 
 ## About the rescaled feature supportted by the author 
 In the [video_info.csv](data/activitynet_annotations/video_info_new.csv), there are 19228 videos.
